@@ -1,0 +1,6 @@
+@SecurityCameraServer_HostAddress = http://localhost:5251
+
+GET {{SecurityCameraServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
