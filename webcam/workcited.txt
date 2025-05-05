@@ -1,0 +1,13 @@
+Works Cited
+
+[1] G. Bradski, The OpenCV Library, Dr. Dobb's Journal of Software Tools, 2000. [Online]. Available: https://opencv.org
+
+[2] Flask, Flask Documentation. [Online]. Available: https://flask.palletsprojects.com
+
+[3] Python Software Foundation, argparse – Parser for command-line options, arguments and sub-commands. [Online]. Available: https://docs.python.org/3/library/argparse.html
+
+[4] Python Software Foundation, socket — Low-level networking interface. [Online]. Available: https://docs.python.org/3/library/socket.html
+
+[5] Python Software Foundation, threading — Thread-based parallelism. [Online]. Available: https://docs.python.org/3/library/threading.html
+
+[6] OpenCV Contributors, HOGDescriptor: People Detector in OpenCV. [Online]. Available: https://docs.opencv.org/4.x/d5/d33/structcv_1_1HOGDescriptor.html
