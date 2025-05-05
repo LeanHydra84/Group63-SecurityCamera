@@ -5,6 +5,13 @@ import argparse
 import socket
 from flask import Flask, jsonify, Response
 import threading
+from enum import Enum
+import webrequests as wr
+
+class StreamingMode(Enum):
+    Disabled = 0
+    GStream = 1
+    WebSocket = 2
 
 # setup flask
 app = Flask(__name__)
@@ -39,12 +46,15 @@ flask_thread.start()
 parser = argparse.ArgumentParser(description="Security camera stream with human detection.")
 parser.add_argument('--debug', action='store_true', help="Disable GStreamer streaming (debug mode)")
 args = parser.parse_args()
-ENABLE_STREAMING = False #not args.debug
+#ENABLE_STREAMING = False #not args.debug
+STREAMING_MODE = StreamingMode.WebSocket
 # ---------------------------------------
 
 # configs
-HOST_IP = "192.168.X.X"  # placeholder
-USE_LOCAL_PREVIEW = True  # false if headless (no local display)
+HOST_IP = "localhost"       # placeholder
+HOST_PORT = 5251            # placeholder
+CAMERA_GUID = ""            # placeholder
+USE_LOCAL_PREVIEW = True    # false if headless (no local display)
 FRAME_SIZE = (640, 480)
 FPS = 25
 COOLDOWN_SECONDS = 5
@@ -68,14 +78,17 @@ def get_local_ip():
 LOCAL_IP = get_local_ip()
 
 print(f"[INFO] Local device IP: {LOCAL_IP}")
-if ENABLE_STREAMING:
-    print(f"[INFO] Streaming to {HOST_IP}:5000")
+if STREAMING_MODE == StreamingMode.GStream:
+    print(f"[INFO] (GStream) Streaming to {HOST_IP}:5000")
+elif STREAMING_MODE == StreamingMode.WebSocket:
+    print(f"[INFO] (WebSocket) Streaming to {HOST_IP}:{HOST_PORT}")
 else:
     print("[INFO] Debug mode: streaming is disabled")
 
 # gstreamer setup writer (if enabled)
 out = None
-if ENABLE_STREAMING:
+wsocket = None
+if StreamingMode == StreamingMode.GStream:
     gst_str = (
         f'appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! '
         f'rtph264pay config-interval=1 pt=96 ! udpsink host={HOST_IP} port=5000'
@@ -84,6 +97,8 @@ if ENABLE_STREAMING:
     if not out.isOpened():
         print("[ERROR] Failed to open GStreamer pipeline.")
         exit(1)
+elif StreamingMode == StreamingMode.WebSocket:
+    wsocket = wr.connect_camera_websocket(HOST_IP, HOST_PORT, CAMERA_GUID)
 else:
     print("[INFO] Running in DEBUG MODE — GStreamer streaming disabled.")
 
@@ -93,12 +108,12 @@ if not cap.isOpened():
     print("[ERROR]: Could not open webcam.")
     exit(1)
 
-print(f"[INFO] {'Streaming' if ENABLE_STREAMING else 'Preview-only'} mode started. Press 'q' to quit.")
+print(f"[INFO] {'Streaming' if STREAMING_MODE is not StreamingMode.Disabled else 'Preview-only'} mode started. Press 'q' to quit.")
 
 print("------------- Configuration -------------")
 print(f"[INFO] Local IP       : {LOCAL_IP}")
 print(f"[INFO] Host IP        : {HOST_IP}")
-print(f"[INFO] Streaming      : {'ENABLED' if ENABLE_STREAMING else 'DISABLED (Debug Mode)'}")
+print(f"[INFO] Streaming      : {'ENABLED' if STREAMING_MODE is not StreamingMode.Disabled else 'DISABLED (Debug Mode)'}")
 print(f"[INFO] Preview        : {'ENABLED' if USE_LOCAL_PREVIEW else 'DISABLED'}")
 print("------------------------------------------")
 
@@ -149,8 +164,10 @@ while True:
         recent_boxes = []
 
     # stream frame (if enabled)
-    if ENABLE_STREAMING and out is not None:
+    if STREAMING_MODE is StreamingMode.GStream and out is not None:
         out.write(frame)
+    elif STREAMING_MODE is StreamingMode.WebSocket and wsocket is not None:
+        wsocket.send(frame)
 
     # optional local preview
     if USE_LOCAL_PREVIEW:
@@ -166,4 +183,6 @@ while True:
 cap.release()
 if out:
     out.release()
+if wsocket:
+    wsocket.close()
 cv2.destroyAllWindows()
