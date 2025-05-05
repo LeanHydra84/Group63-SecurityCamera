@@ -8,4 +8,8 @@
 
 ## Manual
 
-Todo
+### Camera Setup (Raspberry Pi)
+
+
+
+### Server Setup/Website Setup
