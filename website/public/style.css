@@ -1,0 +1,51 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f3f3f3;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+header {
+  background-color: #c75b12; /* UTD color :D */
+  color: white;
+  padding: 1rem;
+}
+
+main {
+  padding: 2rem;
+}
+
+h1 {
+  margin: 0;
+}
+
+img#cameraFeed {
+  width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  border: 2px solid #555;
+  background-color: #000;
+}
+
+.alerts, .status, .settings {
+  margin-top: 2rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.alert {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.alert:last-child {
+  border-bottom: none;
+}
+
+.settings label {
+  display: block;
+  margin: 0.5rem 0;
+}
