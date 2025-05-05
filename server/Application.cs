@@ -1,4 +1,5 @@
 using System;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
@@ -58,6 +59,7 @@ public static class Application
             Console.WriteLine("IsDevelopment");
         }
 
+        app.UseWebSockets();
         app.UseHttpsRedirection();
         app.UseCors("AllowReactLocalServer");
 
@@ -71,12 +73,38 @@ public static class Application
         app.MapPost("/resetpassword", ChangePassword).WithName("Reset Password").WithOpenApi();
         app.MapGet("/validate", CheckAuthenticationValidity).WithName("Validate Authentication").WithOpenApi();
 
-        // Calendar
+        // Camera
         app.MapGet("/getallcalendar", GetAllCameras).WithName("").WithOpenApi();
         app.MapPost("/registercamera", RegisterCamera).WithName("").WithOpenApi();
 
-        app.MapGet("/getimage", GetImage);
+        app.MapGet("/getimage", GetSnapshot);
         app.MapGet("/requeststream", RequestStream);
+        // app.MapPost("/connect", ConnectCamera).WithName("Connect camera").WithOpenApi();
+
+        app.Map("/connectuser", async context =>
+        {
+            if (context.WebSockets.IsWebSocketRequest)
+            {
+                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                
+            }
+            else
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            }
+        });
+        
+        app.Map("/connectcamera", async context =>
+        {
+            if (context.WebSockets.IsWebSocketRequest)
+            {
+                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            }
+            else
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            }
+        });
         
         app.Run();
     }
@@ -181,6 +209,28 @@ public static class Application
         return TypedResults.Forbid();
     }
 
+    private static IResult ConnectCamera([FromBody] string? json)
+    {
+        if (json == null) return TypedResults.BadRequest();
+        
+        ConnectCameraData? data = JsonConvert.DeserializeObject<ConnectCameraData>(json);
+        if (data == null) return TypedResults.BadRequest();
+        
+        if (data.CameraGuid == null || data.SourceIp == null)
+        {
+            return TypedResults.BadRequest("Missing cameraGUID");
+        }
+        
+        Camera? camera = Database.GetCamera(data.CameraGuid);
+        if (camera == null)
+        {
+            return TypedResults.NotFound();
+        }
+        
+        ActiveCameras.RegisterSession(camera, data.SourceIp, data.SourcePort);
+        return TypedResults.Ok();
+    }
+
     private static IResult GetAllCameras(
         [FromHeader(Name = "Email")] string? email,
         [FromHeader(Name = "Authentication")] string? authentication
@@ -201,21 +251,26 @@ public static class Application
         return TypedResults.Ok(asJson);
     }
 
-    private static IResult GetImage(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication,
-        [FromBody] string? jsonBody
+    private static async Task<IResult> GetSnapshot(
+        [FromHeader(Name = "cameraGuid")] string? cameraGuid,
+        [FromHeader(Name = "Authentication")] string? authentication
     )
     {
-        if (email == null || authentication == null) return TypedResults.BadRequest();
-        if (!Sessions.ValidateAuthentication(email, authentication))
+        if (authentication == null) return TypedResults.BadRequest();
+        if (cameraGuid == null) return TypedResults.BadRequest();
+
+        var session = ActiveCameras.GetSession(cameraGuid);
+        if (session == null) return TypedResults.NotFound();
+
+        if (!Sessions.ValidateAuthentication(session.Camera.Owner.EMail, authentication))
         {
             return TypedResults.Unauthorized();
         }
+
+        byte[]? snapshot = await session.RequestSnapshotAsync();
+        if (snapshot == null) return TypedResults.NotFound();
         
-        // return image packet
-        
-        return TypedResults.NotFound();
+        return TypedResults.Ok(new SnapshotResponse("jpg", snapshot));
     }
 
     private static IResult RequestStream(
@@ -237,6 +292,8 @@ public static class Application
 
     private record LoginResponse(string authentication, string email);
     private record CameraListResponse(int id, string GUID, string? name);
+
+    private record SnapshotResponse(string format, byte[] bytes);
 
 }
 

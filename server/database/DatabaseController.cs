@@ -81,5 +81,10 @@ namespace SecurityCameraServer
             return user?.Cameras?.ToList();
         }
 
+        public Camera? GetCamera(string guid)
+        {
+            return dbContext.Cameras.FirstOrDefault(a => a.CameraGUID == guid);
+        }
+
     }
 }

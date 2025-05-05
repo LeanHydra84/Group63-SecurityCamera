@@ -13,16 +13,10 @@ namespace SecurityCameraServer
     public class UserSessionHandler
     {
 
-        public TimeSpan AuthenticationTokenExpirationTime { get; }
-
-        public UserSessionHandler()
-        {
-            activeSessions = new();
-            AuthenticationTokenExpirationTime = new TimeSpan(72, 0, 0);
-        }
+        public TimeSpan AuthenticationTokenExpirationTime { get; } = new(72, 0, 0);
 
         // Hash map of USER-ID to LoginSession
-        private Dictionary<int, LoginSession> activeSessions;
+        private Dictionary<int, LoginSession> activeSessions = new();
 
         private bool HasExpired(LoginSession session) => session.Expires < DateTime.Now;
 
