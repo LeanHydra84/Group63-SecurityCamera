@@ -6,12 +6,13 @@ const app = express();
 const port = 3000;
 
 // Serve frontend
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
-//proxy flask endpoints
-app.use('/status', createProxyMiddleware({ target: 'http://localhost:5001', changeOrigin: true }));
-app.use('/snapshot', createProxyMiddleware({ target: 'http://localhost:5001', changeOrigin: true }));
+// Proxy API routes to C# backend (ASP.NET Core on localhost:5000)
+app.use('/account', createProxyMiddleware({ target: 'http://localhost:5000', changeOrigin: true }));
+app.use('/camera', createProxyMiddleware({ target: 'http://localhost:5000', changeOrigin: true }));
+app.use('/session', createProxyMiddleware({ target: 'http://localhost:5000', changeOrigin: true }));
 
 app.listen(port, () => {
-  console.log(`Web server running at http://localhost:${port}`);
+  console.log(`Frontend running at http://localhost:${port}`);
 });
