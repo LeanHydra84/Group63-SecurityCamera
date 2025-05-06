@@ -101,6 +101,29 @@ sudo shutdown now
 
 ### Server Setup
 
+1. Ensure you have the .NET framework installed
+2. Ensure you have the .NET Entity Framework tool installed
+3. Run `dotnet restore`
+4. Run `dotnet ef database update` to start the database
+5. Run `dotnet run` to start the server
+
+#### Using the server
+
+The server connects the frontend and the Raspberry Pi through web sockets.
+Ensure the right hostname is set in the python code for the raspberry pi before attempting a connection.
+To connect to the server, the camera script must be run in WebSocket mode, and include the GUID of a registered camera.
+
+The server has various endpoints:
+
+- /login                Logs in a user and returns an authentication token for them
+- /logout               Logs out a user and invalidates their authentication token
+- /newuser              Creates a new user and saves them to the database
+- /registercamera       Registers a new camera to a user and returns the GUID
+- /getimage             Returns a the most recent snapshot
+
+- /connectuser          Connects a WebSocket to stream video from the server
+- /connectcamera        Connects a WebSocket to stream video from the camera to the server
+
 ### Website Setup
 
 #### 1. Navigate to the 'website' folder

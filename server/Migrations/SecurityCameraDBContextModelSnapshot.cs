@@ -22,15 +22,13 @@ namespace SecurityCameraServer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("CameraGUID")
-                        .IsRequired()
+                    b.Property<string>("CameraGuid")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("OwnerID")
+                    b.Property<int?>("OwnerID")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("ID");
@@ -64,9 +62,7 @@ namespace SecurityCameraServer.Migrations
                 {
                     b.HasOne("SecurityCameraServer.User", "Owner")
                         .WithMany("Cameras")
-                        .HasForeignKey("OwnerID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("OwnerID");
 
                     b.Navigation("Owner");
                 });

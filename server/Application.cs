@@ -18,6 +18,7 @@ public static class Application
     // Session handlers
     public static UserSessionHandler Sessions { get; }
     public static CameraSessionHandler ActiveCameras { get; }
+    public static CameraViewerSessionHandler CameraViewers { get; }
     
     // Database
     public static DatabaseController Database { get; }
@@ -31,6 +32,7 @@ public static class Application
         Accounts = new AccountController();
         CameraManager = new CameraController();
         ActiveCameras = new CameraSessionHandler();
+        CameraViewers = new CameraViewerSessionHandler();
     }
 
     public static void Main(string[] args)
@@ -97,9 +99,28 @@ public static class Application
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
-                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                context.Request.Headers.TryGetValue("cameraGuid", out var cameraGuid);
-                context.Response.StatusCode = InitCameraConnection(webSocket, cameraGuid.FirstOrDefault());
+                var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+
+                string cameraGuid = string.Empty;
+                try
+                {
+                    CancellationToken token = new CancellationTokenSource().Token;
+                    ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[256]);
+                    var response = await webSocket.ReceiveAsync(buffer, token);
+                
+                    cameraGuid = System.Text.Encoding.Default.GetString(buffer.Slice(0, response.Count));
+                    Console.WriteLine($"Received camera GUID: {cameraGuid}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    return;
+                }
+
+                Console.WriteLine(context.RequestAborted);
+
+                InitCameraConnection(webSocket, cameraGuid);
+                Console.WriteLine("WebSocket opened");
             }
             else
             {
@@ -124,7 +145,7 @@ public static class Application
         
         Console.WriteLine("Camera connection initiated... websocket connected");
 
-        ActiveCameras.RegisterSession(camera, webSocket, SaveImageSwag);
+        ActiveCameras.RegisterSession(camera, webSocket);
         
         return StatusCodes.Status201Created;
     }
@@ -162,7 +183,7 @@ public static class Application
     )
     {
         if (email == null || name == null || password == null) return TypedResults.BadRequest();
-        Accounts.CreateUser(email, name, password, password);
+        Accounts.CreateUser(email, name, password);
         return Login(email, password);
     }
 
@@ -187,10 +208,10 @@ public static class Application
         if (!Sessions.ValidateAuthentication(email, authentication)) return TypedResults.Unauthorized();
 
         if (newPassword == null) return TypedResults.BadRequest("Missing body");
-        bool success = Accounts.ResetPassword(email, newPassword, newPassword);
+        bool success = Accounts.ResetPassword(email, newPassword);
 
         if (success) return TypedResults.Ok("Password changed");
-        else return TypedResults.BadRequest();
+        return TypedResults.BadRequest();
     }
 
     // Cameras
@@ -216,7 +237,7 @@ public static class Application
         Camera? camera = CameraManager.RegisterNewCamera(user, data);
         if (camera != null)
         {
-            var clr = new CameraListResponse(camera.ID, camera.CameraGUID, camera.Name);
+            var clr = new CameraListResponse(camera.ID, camera.CameraGuid, camera.Name);
             string asJson = JsonConvert.SerializeObject(clr);
             return TypedResults.Ok(asJson);
         }
@@ -224,13 +245,7 @@ public static class Application
         return TypedResults.Forbid();
     }
 
-    private static void SaveImageSwag(CameraSession session)
-    {
-        string filename = DateTime.Now.Ticks.ToString() + "-" + Random.Shared.Next() + ".jpg";
-        var file = File.Open($"C:\\Users\\Augustus\\Desktop\\OutputBS\\{filename}", FileMode.Create);
-        file.Write(session.CurrentSnapshot);
-        file.Close();
-    }
+
     
     private static IResult GetAllCameras(
         [FromHeader(Name = "Email")] string? email,
@@ -246,7 +261,7 @@ public static class Application
         List<Camera>? cameras = Database.GetLightAllCameras(email);
         if (cameras == null) return TypedResults.NotFound();
 
-        var organized = cameras.Select(a => new CameraListResponse(a.ID, a.CameraGUID, a.Name)).ToList();
+        var organized = cameras.Select(a => new CameraListResponse(a.ID, a.CameraGuid, a.Name)).ToList();
         string asJson = JsonConvert.SerializeObject(organized);
 
         return TypedResults.Ok(asJson);
@@ -271,8 +286,10 @@ public static class Application
         // byte[]? snapshot = await session.RequestSnapshotAsync();
         // if (snapshot == null) return TypedResults.NotFound();
 
+        string asJson = JsonConvert.SerializeObject(new SnapshotResponse("jpg", session.CurrentSnapshot));
+
         if (session.CurrentSnapshot == null) return TypedResults.NotFound();
-        return TypedResults.Ok(new SnapshotResponse("jpg", session.CurrentSnapshot));
+        return TypedResults.Ok(asJson);
     }
 
     private static IResult RequestStream(

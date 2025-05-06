@@ -10,7 +10,10 @@ async def connect_camera_websocket(address, host_port, camera_guid):
     else:
         url = f"{address}/{connect_endpoint}"
 
-    websocket = await websockets.connect(url, extra_headers={ 'cameraGuid' : camera_guid })
-    websocket.send
+    print("Attempting connection to WebSocket...")
+    # send extra_headers={ 'cameraGuid' : camera_guid }, cannot have extra headers though
+    # come up with solution...
+    websocket = await websockets.connect(url)
+    await websocket.send(camera_guid)
 
-    return websockets
+    return websocket

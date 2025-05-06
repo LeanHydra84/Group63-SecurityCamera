@@ -11,7 +11,7 @@ namespace SecurityCameraServer
     internal sealed class SecurityCameraDBContext : DbContext
     {
 
-        public string ConnectionString { get; }
+        private string ConnectionString { get; }
 
         public SecurityCameraDBContext()
         {

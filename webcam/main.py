@@ -7,6 +7,7 @@ from flask import Flask, jsonify, Response
 import threading
 from enum import Enum
 import webrequests as wr
+import asyncio
 
 class StreamingMode(Enum):
     Disabled = 0
@@ -14,33 +15,33 @@ class StreamingMode(Enum):
     WebSocket = 2
 
 # setup flask
-app = Flask(__name__)
+# app = Flask(__name__)
 detection_status = {"human_detected": False}
 latest_frame = None
 last_detected_time = 0  # Global tracking
 STATUS_HOLD_SECONDS = 3
 
-@app.route('/status')
-def status():
-    print(f"[DEBUG] /status requested. Returning: {detection_status}")
-    return jsonify(detection_status)
+# @app.route('/status')
+# def status():
+#     print(f"[DEBUG] /status requested. Returning: {detection_status}")
+#     return jsonify(detection_status)
 
-@app.route('/snapshot')
-def snapshot():
-    global latest_frame
-    if latest_frame is not None:
-        _, jpeg = cv2.imencode('.jpg', latest_frame)
-        return Response(jpeg.tobytes(), mimetype='image/jpeg')
-    return "No frame available", 404
+# @app.route('/snapshot')
+# def snapshot():
+#     global latest_frame
+#     if latest_frame is not None:
+#         _, jpeg = cv2.imencode('.jpg', latest_frame)
+#         return Response(jpeg.tobytes(), mimetype='image/jpeg')
+#     return "No frame available", 404
 
-def run_flask():
-    import logging
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)  # suppress request logs
-    app.run(host='0.0.0.0', port=5001)
+# def run_flask():
+#     import logging
+#     log = logging.getLogger('werkzeug')
+#     log.setLevel(logging.ERROR)  # suppress request logs
+#     app.run(host='0.0.0.0', port=5001)
 
-flask_thread = threading.Thread(target=run_flask, daemon=True)
-flask_thread.start()
+# flask_thread = threading.Thread(target=run_flask, daemon=True)
+# flask_thread.start()
 
 # ---------- cmd setup ----------
 parser = argparse.ArgumentParser(description="Security camera stream with human detection.")
@@ -51,9 +52,9 @@ STREAMING_MODE = StreamingMode.WebSocket
 # ---------------------------------------
 
 # configs
-HOST_IP = "localhost"       # placeholder
+HOST_IP = "ws://localhost"       # placeholder
 HOST_PORT = 5251            # placeholder
-CAMERA_GUID = ""            # placeholder
+CAMERA_GUID = 'a2ce1cbc-36be-4cf3-8442-e585cad6dd04'            # placeholder
 USE_LOCAL_PREVIEW = True    # false if headless (no local display)
 FRAME_SIZE = (640, 480)
 FPS = 25
@@ -78,9 +79,9 @@ def get_local_ip():
 LOCAL_IP = get_local_ip()
 
 print(f"[INFO] Local device IP: {LOCAL_IP}")
-if STREAMING_MODE == StreamingMode.GStream:
+if STREAMING_MODE is StreamingMode.GStream:
     print(f"[INFO] (GStream) Streaming to {HOST_IP}:5000")
-elif STREAMING_MODE == StreamingMode.WebSocket:
+elif STREAMING_MODE is StreamingMode.WebSocket:
     print(f"[INFO] (WebSocket) Streaming to {HOST_IP}:{HOST_PORT}")
 else:
     print("[INFO] Debug mode: streaming is disabled")
@@ -88,7 +89,7 @@ else:
 # gstreamer setup writer (if enabled)
 out = None
 wsocket = None
-if StreamingMode == StreamingMode.GStream:
+if STREAMING_MODE is StreamingMode.GStream:
     gst_str = (
         f'appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! '
         f'rtph264pay config-interval=1 pt=96 ! udpsink host={HOST_IP} port=5000'
@@ -97,8 +98,9 @@ if StreamingMode == StreamingMode.GStream:
     if not out.isOpened():
         print("[ERROR] Failed to open GStreamer pipeline.")
         exit(1)
-elif StreamingMode == StreamingMode.WebSocket:
-    wsocket = wr.connect_camera_websocket(HOST_IP, HOST_PORT, CAMERA_GUID)
+elif STREAMING_MODE is StreamingMode.WebSocket:
+    # wsocket = asyncio.run(wr.connect_camera_websocket(HOST_IP, HOST_PORT, CAMERA_GUID))
+    pass
 else:
     print("[INFO] Running in DEBUG MODE — GStreamer streaming disabled.")
 
@@ -117,67 +119,79 @@ print(f"[INFO] Streaming      : {'ENABLED' if STREAMING_MODE is not StreamingMod
 print(f"[INFO] Preview        : {'ENABLED' if USE_LOCAL_PREVIEW else 'DISABLED'}")
 print("------------------------------------------")
 
-# initiate tracking
-prev_gray = None
-last_detection_time = 0
-last_box_time = 0
-recent_boxes = []
+async def send_loop():
+    global latest_frame
+    global last_detected_time # Global tracking
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    # initiate tracking
+    prev_gray = None
+    last_detection_time = 0
+    last_box_time = 0
+    recent_boxes = []
 
-    frame = cv2.resize(frame, FRAME_SIZE)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    wsocket = await wr.connect_camera_websocket(HOST_IP, HOST_PORT, CAMERA_GUID)
 
-    # motion detect
-    motion_detected = False
-    if prev_gray is not None:
-        diff = cv2.absdiff(prev_gray, gray)
-        _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
-        motion_area = cv2.countNonZero(thresh)
-        motion_detected = motion_area > 5000
-
-    prev_gray = gray.copy()
-    new_boxes = []
-    current_time = time.time()
-
-    if motion_detected:
-        boxes, _ = hog.detectMultiScale(frame, winStride=(8, 8))
-        new_boxes = boxes
-        if len(boxes) > 0:
-            last_detected_time = current_time
-            if current_time - last_detection_time > COOLDOWN_SECONDS:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"[{timestamp}] Moving human detected.")
-                last_detection_time = current_time
-                last_box_time = current_time
-                recent_boxes = boxes
-            latest_frame = frame.copy()
-
-    # hide boxes (if timeout)
-    if current_time - last_box_time < BOX_DISPLAY_SECONDS:
-        for (x, y, w, h) in recent_boxes:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-    else:
-        recent_boxes = []
-
-    # stream frame (if enabled)
-    if STREAMING_MODE is StreamingMode.GStream and out is not None:
-        out.write(frame)
-    elif STREAMING_MODE is StreamingMode.WebSocket and wsocket is not None:
-        wsocket.send(frame)
-
-    # optional local preview
-    if USE_LOCAL_PREVIEW:
-        cv2.imshow("Preview", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+    while True:
+        ret, frame = cap.read()
+        if not ret:
             break
 
-    # update shared state
-    latest_frame = frame.copy()
-    detection_status["human_detected"] = (current_time - last_detected_time) < STATUS_HOLD_SECONDS
+        frame = cv2.resize(frame, FRAME_SIZE)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # motion detect
+        motion_detected = False
+        if prev_gray is not None:
+            diff = cv2.absdiff(prev_gray, gray)
+            _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+            motion_area = cv2.countNonZero(thresh)
+            motion_detected = motion_area > 5000
+
+        prev_gray = gray.copy()
+        new_boxes = []
+        current_time = time.time()
+
+        if motion_detected:
+            boxes, _ = hog.detectMultiScale(frame, winStride=(8, 8))
+            new_boxes = boxes
+            if len(boxes) > 0:
+                last_detected_time = current_time
+                if current_time - last_detection_time > COOLDOWN_SECONDS:
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(f"[{timestamp}] Moving human detected.")
+                    last_detection_time = current_time
+                    last_box_time = current_time
+                    recent_boxes = boxes
+                latest_frame = frame.copy()
+
+        # hide boxes (if timeout)
+        if current_time - last_box_time < BOX_DISPLAY_SECONDS:
+            for (x, y, w, h) in recent_boxes:
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        else:
+            recent_boxes = []
+
+        # stream frame (if enabled)
+        if STREAMING_MODE is StreamingMode.GStream and out is not None:
+            out.write(frame)
+        elif STREAMING_MODE is StreamingMode.WebSocket and wsocket is not None:
+            _, jpeg = cv2.imencode('.jpg', frame)
+            await wsocket.send(jpeg.tobytes())
+            print("Sending frame")
+
+        # optional local preview
+        if USE_LOCAL_PREVIEW:
+            cv2.imshow("Preview", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # update shared state
+        latest_frame = frame.copy()
+        detection_status["human_detected"] = (current_time - last_detected_time) < STATUS_HOLD_SECONDS
+        
+        await asyncio.sleep(0.25)
+
+asyncio.run(send_loop())
 
 # Cleanup
 cap.release()

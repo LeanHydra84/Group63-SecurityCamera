@@ -9,7 +9,7 @@ public class CameraController
 		string guid = Guid.NewGuid().ToString();
 		if (data.RequestedGUID != null)
 		{
-			bool guidIsTaken = Application.Database.Context.Cameras.Any(a => a.CameraGUID == data.RequestedGUID);
+			bool guidIsTaken = Application.Database.Context.Cameras.Any(a => a.CameraGuid == data.RequestedGUID);
 			if (!guidIsTaken)
 			{
 				guid = data.RequestedGUID;
@@ -18,7 +18,7 @@ public class CameraController
 		
 		Camera newCamera = new Camera
 		{
-			CameraGUID = guid,
+			CameraGuid = guid,
 			Owner = owner,
 			Name = data.Name,
 		};

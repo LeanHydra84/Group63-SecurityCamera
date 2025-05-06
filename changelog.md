@@ -19,7 +19,11 @@ Running document through the beginning of the project listing all work achieved 
 ### Software – Host PC / Backend
 - Developed server backend to receive camera stream and manage detection logs.
 - Implemented WebSocket and GStreamer-based video stream reception.
+- Includes the ability for multiple users to stream multiple cameras to the server at the same time
+- Includes password validation and security features such as authentication tokens
+- Allows for users to register cameras that belong to them, making it secure to view your own streams
 - Built system for timestamping and recording motion or human detection events.
+- WebSocket integration between both the camera and server as well as the end user and server
 
 ### Frontend – Website Interface
 - Created web interface to view detection status and request snapshots from the Raspberry Pi.
