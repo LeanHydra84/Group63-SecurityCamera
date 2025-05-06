@@ -109,6 +109,8 @@ sudo shutdown now
 cd website
 ```
 
+---
+
 #### 2. Install dependencies
 
 ```bash
@@ -116,11 +118,15 @@ npm install
 npm install http-proxy-middleware
 ```
 
+---
+
 #### 3. Start the frontend server
 
 ```bash
 npm start
 ```
+
+---
 
 #### 4. Open your browser and go to
 
