@@ -99,4 +99,31 @@ sudo shutdown now
 
 
 
-### Server Setup/Website Setup
+### Server Setup
+
+### Website Setup
+
+#### 1. Navigate to the 'website' folder
+
+```bash
+cd website
+```
+
+#### 2. Install dependencies
+
+```bash
+npm install
+npm install http-proxy-middleware
+```
+
+#### 3. Start the frontend server
+
+```bash
+npm start
+```
+
+#### 4. Open your browser and go to
+
+```bash
+http://localhost:3000
+```
