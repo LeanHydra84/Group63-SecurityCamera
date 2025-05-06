@@ -117,7 +117,7 @@ cd website
 npm install
 npm install http-proxy-middleware
 ```
-
+> **Note:** You only need to do this the first time you want to open the website.
 ---
 
 #### 3. Start the frontend server
