@@ -22,11 +22,7 @@ public class CameraSessionHandler
 		if (activeSessions.ContainsKey(camera.CameraGuid))
 			CullSession(camera);
 
-		CameraSession session = new(camera, socket)
-		{
-			CancellationTokenSource = new CancellationTokenSource(),
-		};
-		
+		CameraSession session = new(camera, socket);
 		session.OnSnapshotReceived += onSessionCreated;
 		
 		activeSessions[camera.CameraGuid] = session;
@@ -55,6 +51,16 @@ public class CameraSessionHandler
 	{
 		activeSessions.TryGetValue(cameraGuid, out var session);
 		return session;
+	}
+
+	public void DisposeAll()
+	{
+		foreach (var kvp in activeSessions)
+		{
+			kvp.Value.EndSession();
+		}
+		
+		activeSessions.Clear();
 	}
 
 }

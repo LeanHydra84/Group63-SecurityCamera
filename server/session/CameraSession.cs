@@ -7,11 +7,9 @@ public class CameraSession : SocketHandlerBase
 	public CameraSession(Camera camera, WebSocket socket) : base(socket)
 	{
 		Camera = camera;
-		CancellationTokenSource = new CancellationTokenSource();
 	}
 	
 	public Camera Camera { get; init; }
-	public CancellationTokenSource CancellationTokenSource { get; init; }
 	public byte[]? CurrentSnapshot { get; private set; }
 	public DateTime LastSnapshotReceived { get; private set; }
 
@@ -20,17 +18,17 @@ public class CameraSession : SocketHandlerBase
 	public List<CameraViewerSession> Subscribed { get; } = new();
 
 
-	private async Task BroadcastFrameToAllSubscribers(CancellationToken token)
+	private void MarkFrameForBroadcast(CancellationToken token)
 	{
 		foreach (var viewer in Subscribed)
 		{
-			ArraySegment<byte> message = new ArraySegment<byte>(CurrentSnapshot);
-			await viewer.Socket.SendAsync(message, WebSocketMessageType.Binary, true, token);
+			viewer.MarkFrameReady();
 		}
 	}
 
-	public async Task HandleAsync(CancellationToken token)
+	public override async Task HandleAsync()
 	{
+		CancellationToken token = CancellationTokenSource.Token;	
 		ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[65536]);
 		if (buffer.Array == null) return;
 		
@@ -58,7 +56,7 @@ public class CameraSession : SocketHandlerBase
 					// Console.WriteLine("Image received!");
 
 					// I don't think this should be awaited? Don't want this to be blocking, but sockets have issues in un-awaited functions sometimes
-					_ = BroadcastFrameToAllSubscribers(token);
+					MarkFrameForBroadcast(token);
 
 					stream.SetLength(0);
 				}
