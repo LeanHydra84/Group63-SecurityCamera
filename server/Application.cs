@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using SecurityCameraServer;
@@ -27,6 +28,8 @@ public static class Application
 
     public static void Main(string[] args)
     {
+        Console.CancelKeyPress += CleanupAllSockets;
+        
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
@@ -73,9 +76,13 @@ public static class Application
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
+                Console.WriteLine("User request incoming...");
                 var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                string? jsonRequest = await webSocket.ReceiveStringFromWebSocket();
+                string? jsonRequest = await webSocket.ReceiveFixedStringFromWebSocket(128);
                 if (jsonRequest == null) return;
+                
+                Console.WriteLine(jsonRequest);
+                await webSocket.SendAsync(new ArraySegment<byte>("Here are bytes"u8.ToArray()), WebSocketMessageType.Text, true, CancellationToken.None);
                 
                 var request = JsonConvert.DeserializeObject<ViewStreamRequest>(jsonRequest);
                 if (request == null) return;
@@ -96,7 +103,8 @@ public static class Application
                 CameraSession? session = ActiveCameras.GetSession(request.CameraGuid);
                 if (session == null) return;
                 
-                CameraViewers.RegisterSession(null, session, webSocket);
+                var cvs = CameraViewers.RegisterSession(null, session, webSocket, request.RequestedFps);
+                await cvs.HandleAsync();
             }
             else
             {
@@ -116,7 +124,7 @@ public static class Application
 
                 Console.WriteLine($"[SERVER] Camera '{cameraGuid}' connected");
                 
-                await session.HandleAsync(session.CancellationTokenSource.Token);
+                await session.HandleAsync();
             }
             else
             {
@@ -127,6 +135,12 @@ public static class Application
         app.Run();
     }
 
+    private static void CleanupAllSockets(object? sender, ConsoleCancelEventArgs e)
+    {
+        ActiveCameras.DisposeAll();
+        CameraViewers.DisposeAll();
+    }
+    
     private static void SaveImageToFileEvent(object? sender, EventArgs _)
     {
         if (sender is not CameraSession session) return;

@@ -51,7 +51,7 @@ public static class WebSocketHelper
 			
 			return stream.ToArray();
 		}
-		catch (Exception e)
+		catch (Exception)
 		{
 			// Console.WriteLine(e);
 			return null;
