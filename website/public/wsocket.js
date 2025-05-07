@@ -1,3 +1,4 @@
+// compatible with ngrok despite http requirements
 const socket = new WebSocket('ws://localhost:5251/connect')
 const feed = document.getElementById('cameraFeed');
 
@@ -20,6 +21,5 @@ function setImage(data) {
 socket.onmessage = function(event) {
     console.log('receiving message...')
     setImage(event.data);
-
     return false;
 }
