@@ -1,16 +1,6 @@
-using System;
 using System.Net.WebSockets;
-using System.Security.Cryptography;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using Microsoft.EntityFrameworkCore.Storage.Json;
-using SQLitePCL;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Identity;
 using SecurityCameraServer;
 
 public static class Application
@@ -23,14 +13,14 @@ public static class Application
     // Database
     public static DatabaseController Database { get; }
     public static AccountController Accounts { get; }
-    public static CameraController CameraManager { get; }
+    
+    public static string? DatabaseConnectionString { get; private set; }
 
     static Application()
     {
         Sessions = new UserSessionHandler();
-        Database = new DatabaseController();
         Accounts = new AccountController();
-        CameraManager = new CameraController();
+        Database = new DatabaseController();
         ActiveCameras = new CameraSessionHandler();
         CameraViewers = new CameraViewerSessionHandler();
     }
@@ -54,7 +44,7 @@ public static class Application
         ));
 
         var app = builder.Build();
-
+        
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
@@ -79,15 +69,34 @@ public static class Application
         app.MapPost("/registercamera", RegisterCamera).WithName("Register Camera").WithOpenApi();
 
         app.MapGet("/getimage", GetSnapshot);
-        // app.MapGet("/requeststream", RequestStream);
-        // app.MapPost("/connect", ConnectCamera).WithName("Connect camera").WithOpenApi();
-
-        app.Map("/connectuser", async context =>
+        app.Map("/connect", async context =>
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
-                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                string? jsonRequest = await webSocket.ReceiveStringFromWebSocket();
+                if (jsonRequest == null) return;
                 
+                var request = JsonConvert.DeserializeObject<ViewStreamRequest>(jsonRequest);
+                if (request == null) return;
+                if (request.CameraGuid == null) return;
+                
+                Camera? camera = Database.GetCamera(request.CameraGuid);
+                if (camera == null) return;
+
+                if (!camera.IsPublic)
+                {
+                    if (request.Authentication == null) return;
+                    User? user = camera.Owner;
+                    if (user == null) return;
+                    bool validated = Sessions.ValidateAuthentication(user.Username, request.Authentication);
+                    if (!validated) return;
+                }
+                
+                CameraSession? session = ActiveCameras.GetSession(request.CameraGuid);
+                if (session == null) return;
+                
+                CameraViewers.RegisterSession(null, session, webSocket);
             }
             else
             {
@@ -95,16 +104,18 @@ public static class Application
             }
         });
 
-        app.Map("/connectcamera", async context =>
+        app.Map("/connect_camera", async context =>
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
                 using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                string? cameraGuid = await CameraSession.ReceiveCameraGuidFromServer(webSocket);
+                string? cameraGuid = await webSocket.ReceiveFixedStringFromWebSocket(64);
                 
                 CameraSession? session = InitCameraConnection(webSocket, cameraGuid);
                 if (session == null) return;
 
+                Console.WriteLine($"[SERVER] Camera '{cameraGuid}' connected");
+                
                 await session.HandleAsync(session.CancellationTokenSource.Token);
             }
             else
@@ -116,8 +127,9 @@ public static class Application
         app.Run();
     }
 
-    private static void SaveImageToFile(CameraSession session)
+    private static void SaveImageToFileEvent(object? sender, EventArgs _)
     {
+        if (sender is not CameraSession session) return;
         if (session.CurrentSnapshot == null) return;
 
         string fileName = Random.Shared.Next().ToString() + "_" + DateTime.Now.ToFileTimeUtc();
@@ -145,63 +157,63 @@ public static class Application
     
     // Account
     private static IResult Login(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Password")] string? password)
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "username")] string? password)
     {
-        if (email == null || password == null)
-            return TypedResults.BadRequest("Missing 'Email' and/or 'Password' headers");
-        var result = Sessions.Login(email, password);
+        if (username == null || password == null)
+            return TypedResults.BadRequest("Missing 'username' and/or 'password' headers");
+        var result = Sessions.Login(username, password);
         if (result == null) return TypedResults.Unauthorized();
-        return TypedResults.Ok(new LoginResponse(result, email));
+        return TypedResults.Ok(new LoginResponse(result, username));
     }
 
     private static IResult Logout(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "authentication")] string? authentication
     )
     {
-        if (email == null || authentication == null)
-            return TypedResults.BadRequest("Missing 'Email' and/or 'Password' headers");
-        if (!Sessions.ValidateAuthentication(email, authentication))
+        if (username == null || authentication == null)
+            return TypedResults.BadRequest("Missing 'username' and/or 'password' headers");
+        if (!Sessions.ValidateAuthentication(username, authentication))
             return TypedResults.Unauthorized();
 
-        _ = Sessions.Logout(email);
+        _ = Sessions.Logout(username);
         return TypedResults.Ok();
     }
 
     private static IResult CreateUser(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Password")] string? password,
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "password")] string? password,
         [FromBody] string? name
     )
     {
-        if (email == null || name == null || password == null) return TypedResults.BadRequest();
-        Accounts.CreateUser(email, name, password);
-        return Login(email, password);
+        if (username == null || name == null || password == null) return TypedResults.BadRequest();
+        Accounts.CreateUser(username, name, password);
+        return Login(username, password);
     }
 
     private static IResult CheckAuthenticationValidity(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "authentication")] string? authentication
     )
     {
-        if (email == null || authentication == null) return TypedResults.BadRequest();
-        bool success = Sessions.ValidateAuthentication(email, authentication);
+        if (username == null || authentication == null) return TypedResults.BadRequest();
+        bool success = Sessions.ValidateAuthentication(username, authentication);
         if (success) return TypedResults.Ok();
         else return TypedResults.Unauthorized();
     }
     
     private static IResult ChangePassword(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication,
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "authentication")] string? authentication,
         [FromBody] string? newPassword
     )
     {
-        if (email == null || authentication == null) return TypedResults.BadRequest();
-        if (!Sessions.ValidateAuthentication(email, authentication)) return TypedResults.Unauthorized();
+        if (username == null || authentication == null) return TypedResults.BadRequest();
+        if (!Sessions.ValidateAuthentication(username, authentication)) return TypedResults.Unauthorized();
 
         if (newPassword == null) return TypedResults.BadRequest("Missing body");
-        bool success = Accounts.ResetPassword(email, newPassword);
+        bool success = Accounts.ResetPassword(username, newPassword);
 
         if (success) return TypedResults.Ok("Password changed");
         return TypedResults.BadRequest();
@@ -209,25 +221,27 @@ public static class Application
 
     // Cameras
     private static IResult RegisterCamera(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication,
+        [FromHeader(Name = "username")] string? username,
+        [FromHeader(Name = "authentication")] string? authentication,
         [FromBody] string? jsonBody
     )
     {
-        if (email == null || authentication == null)
+        if (username == null || authentication == null)
             return TypedResults.BadRequest("Missing user or authentication");
 
-        if (!Sessions.ValidateAuthentication(email, authentication))
+        if (!Sessions.ValidateAuthentication(username, authentication))
         {
             return TypedResults.Unauthorized();
         }
 
         if (jsonBody == null) return TypedResults.BadRequest("Missing body");
-        var data = JsonConvert.DeserializeObject<RegisterCameraData>(jsonBody);
+        var data = JsonConvert.DeserializeObject<RegisterCameraRequest>(jsonBody);
         if (data == null) return TypedResults.BadRequest("Malformed body");
 
-        User? user = Database.GetLightUserFromEmail(email);
-        Camera? camera = CameraManager.RegisterNewCamera(user, data);
+        User? user = Database.GetLightUserFromUsername(username);
+        if (user == null) return TypedResults.NotFound();
+        
+        Camera? camera = Database.RegisterNewCamera(user, data);
         if (camera != null)
         {
             var clr = new CameraListResponse(camera.ID, camera.CameraGuid, camera.Name);
@@ -238,20 +252,18 @@ public static class Application
         return TypedResults.Forbid();
     }
 
-
-    
     private static IResult GetAllCameras(
-        [FromHeader(Name = "Email")] string? email,
+        [FromHeader(Name = "username")] string? username,
         [FromHeader(Name = "Authentication")] string? authentication
     )
     {
-        if (email == null || authentication == null) return TypedResults.BadRequest();
-        if (!Sessions.ValidateAuthentication(email, authentication))
+        if (username == null || authentication == null) return TypedResults.BadRequest();
+        if (!Sessions.ValidateAuthentication(username, authentication))
         {
             return TypedResults.Unauthorized();
         }
         
-        List<Camera>? cameras = Database.GetLightAllCameras(email);
+        List<Camera>? cameras = Database.GetLightAllCameras(username);
         if (cameras == null) return TypedResults.NotFound();
 
         var organized = cameras.Select(a => new CameraListResponse(a.ID, a.CameraGuid, a.Name)).ToList();
@@ -260,7 +272,7 @@ public static class Application
         return TypedResults.Ok(asJson);
     }
 
-    private static async Task<IResult> GetSnapshot(
+    private static IResult GetSnapshot(
         [FromHeader(Name = "cameraGuid")] string? cameraGuid,
         [FromHeader(Name = "Authentication")] string? authentication
     )
@@ -271,40 +283,24 @@ public static class Application
         var session = ActiveCameras.GetSession(cameraGuid);
         if (session == null) return TypedResults.NotFound();
 
-        if (!Sessions.ValidateAuthentication(session.Camera.Owner.EMail, authentication))
+        if (!Sessions.ValidateAuthentication(session.Camera.Owner.Username, authentication))
         {
             return TypedResults.Unauthorized();
         }
 
         // byte[]? snapshot = await session.RequestSnapshotAsync();
         // if (snapshot == null) return TypedResults.NotFound();
-
+        if (session.CurrentSnapshot == null)
+            return TypedResults.NotFound();
         string asJson = JsonConvert.SerializeObject(new SnapshotResponse("jpg", session.CurrentSnapshot));
-
+        
         if (session.CurrentSnapshot == null) return TypedResults.NotFound();
         return TypedResults.Ok(asJson);
     }
 
-    private static IResult RequestStream(
-        [FromHeader(Name = "Email")] string? email,
-        [FromHeader(Name = "Authentication")] string? authentication,
-        [FromBody] string? jsonBody
-    )
-    {
-        if (email == null || authentication == null) return TypedResults.BadRequest();
-        if (!Sessions.ValidateAuthentication(email, authentication))
-        {
-            return TypedResults.Unauthorized();
-        }
-        
-        // begin stream
-        return TypedResults.NotFound();
-    }
-
-    private record LoginResponse(string authentication, string email);
-    private record CameraListResponse(int id, string GUID, string? name);
-
-    private record SnapshotResponse(string format, byte[] bytes);
+    private record LoginResponse([JsonProperty("authentication")] string Authentication, [JsonProperty("username")] string Username);
+    private record CameraListResponse([JsonProperty("id")] int Id, [JsonProperty("guid")] string Guid, [JsonProperty("name")] string? Name);
+    private record SnapshotResponse([JsonProperty("format")] string Format, [JsonProperty("bytes")] byte[] Bytes);
 
 }
 

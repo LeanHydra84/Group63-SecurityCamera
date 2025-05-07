@@ -2,7 +2,7 @@
 
 namespace SecurityCameraServer;
 
-public class RegisterCameraData
+public class RegisterCameraRequest
 {
 	public string Name { get; set; }
 	public string RequestedGUID { get; set; }

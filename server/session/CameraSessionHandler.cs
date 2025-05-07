@@ -12,22 +12,23 @@ public class CameraSessionHandler
 		if (!activeSessions.ContainsKey(camera.CameraGuid))
 			return;
 		CameraSession session = activeSessions[camera.CameraGuid];
-		session.CancellationTokenSource?.CancelAsync();
 		activeSessions.Remove(camera.CameraGuid);
+		_ = session.CancellationTokenSource?.CancelAsync();
 		_ = session.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
 	}
 
-	public CameraSession RegisterSession(Camera camera, WebSocket socket, Action<CameraSession>? onSessionCreated = null)
+	public CameraSession RegisterSession(Camera camera, WebSocket socket, EventHandler? onSessionCreated = null)
 	{
 		if (activeSessions.ContainsKey(camera.CameraGuid))
 			CullSession(camera);
 
 		CameraSession session = new(camera, socket)
 		{
-			OnSnapshotReceived = onSessionCreated,
 			CancellationTokenSource = new CancellationTokenSource(),
 		};
-
+		
+		session.OnSnapshotReceived += onSessionCreated;
+		
 		activeSessions[camera.CameraGuid] = session;
 		
 		return session;

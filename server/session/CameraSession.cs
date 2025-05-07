@@ -2,51 +2,24 @@ using System.Net.WebSockets;
 
 namespace SecurityCameraServer;
 
-public class CameraSession
+public class CameraSession : SocketHandlerBase
 {
-	public CameraSession(Camera camera, WebSocket socket)
+	public CameraSession(Camera camera, WebSocket socket) : base(socket)
 	{
 		Camera = camera;
-		Socket = socket;
+		CancellationTokenSource = new CancellationTokenSource();
 	}
 	
 	public Camera Camera { get; init; }
-	public WebSocket Socket { get; init; }
 	public CancellationTokenSource CancellationTokenSource { get; init; }
-	public byte[]? CurrentSnapshot { get; set; }
-	public DateTime LastSnapshotReceived { get; set; }
-	
-	public Action<CameraSession>? OnSnapshotReceived { get; set; }
+	public byte[]? CurrentSnapshot { get; private set; }
+	public DateTime LastSnapshotReceived { get; private set; }
+
+	public event EventHandler? OnSnapshotReceived;
 
 	public List<CameraViewerSession> Subscribed { get; } = new();
 
-	void SendRequestToSend()
-	{
-		
-	}
 
-	public static async Task<string?> ReceiveCameraGuidFromServer(WebSocket webSocket)
-	{
-		try
-		{
-			CancellationToken token = new CancellationTokenSource().Token;
-			ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[256]);
-			var response = await webSocket.ReceiveAsync(buffer, token);
-			if (!response.EndOfMessage)
-			{
-				Console.WriteLine("Received camera GUID was too long, aborting");
-				await webSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, string.Empty, token);
-				return null;
-			}
-			return System.Text.Encoding.Default.GetString(buffer.Slice(0, response.Count));
-		}
-		catch (Exception e)
-		{
-			Console.WriteLine(e);
-			return null;
-		}
-	}
-	
 	private async Task BroadcastFrameToAllSubscribers(CancellationToken token)
 	{
 		foreach (var viewer in Subscribed)
@@ -67,12 +40,11 @@ public class CameraSession
 		{
 			while (!token.IsCancellationRequested)
 			{
-				Console.WriteLine($"Waiting for data, socket state is {Socket.State}");
 				var response = await Socket.ReceiveAsync(buffer, token);
-
 				if (response.CloseStatus.HasValue)
 				{
 					Console.WriteLine("Connection closed!");
+					return;
 				}
 
 				stream.Write(buffer.Array, buffer.Offset, response.Count);
@@ -81,11 +53,12 @@ public class CameraSession
 				{
 					CurrentSnapshot = stream.ToArray();
 					LastSnapshotReceived = DateTime.Now;
-					OnSnapshotReceived?.Invoke(this);
+					OnSnapshotReceived?.Invoke(this, EventArgs.Empty);
 
-					Console.WriteLine("Image received!");
+					// Console.WriteLine("Image received!");
 
-					await BroadcastFrameToAllSubscribers(token);
+					// I don't think this should be awaited? Don't want this to be blocking, but sockets have issues in un-awaited functions sometimes
+					_ = BroadcastFrameToAllSubscribers(token);
 
 					stream.SetLength(0);
 				}
@@ -97,6 +70,16 @@ public class CameraSession
 			Console.WriteLine(e.Message);
 			Application.ActiveCameras.CullSession(Camera);
 		}
+	}
+
+	public override void EndSession()
+	{
+		foreach (var user in Subscribed)
+		{
+			user.EndSession();
+		}
+
+		base.EndSession();
 	}
 	
 }

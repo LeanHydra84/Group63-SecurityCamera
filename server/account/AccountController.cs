@@ -10,11 +10,11 @@ namespace SecurityCameraServer
 
         public bool CreateUser(string email, string name, string password)
         {
-            if (Application.Database.GetLightUserFromEmail(email) == null)
+            if (Application.Database.GetLightUserFromUsername(email) == null)
             {
                 User user = new()
                 {
-                    EMail = email,
+                    Username = email,
                     PasswordHashData = new SecureHash<SHA256>(password),
                     Name = name,
                 };
@@ -27,7 +27,7 @@ namespace SecurityCameraServer
 
         public bool ChangeName(string email, string authentication, string newName)
         {
-            User? user = Application.Database.GetLightUserFromEmail(email);
+            User? user = Application.Database.GetLightUserFromUsername(email);
             if (user == null) return false;
 
             user.Name = newName;
@@ -38,10 +38,10 @@ namespace SecurityCameraServer
 
         public bool ResetPassword(string email, string password)
         {
-            User? user = Application.Database.GetLightUserFromEmail(email);
+            User? user = Application.Database.GetLightUserFromUsername(email);
             if (user == null) return false;
 
-            Console.WriteLine(user.EMail);
+            Console.WriteLine(user.Username);
 
             if(string.IsNullOrEmpty(password)) return false;
             if (password.Length < 5) return false;

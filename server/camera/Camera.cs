@@ -10,5 +10,6 @@ namespace SecurityCameraServer
 		public string Name { get; init; }
 		public string CameraGuid { get; init; }
 		public User Owner { get; init; }
+		public bool IsPublic { get; init; }
 	}
 }

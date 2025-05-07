@@ -12,7 +12,7 @@ namespace SecurityCameraServer;
 public class User
 {
     public int ID { get; set; }
-    public string EMail { get; set; }
+    public string Username { get; set; }
     public string Name { get; set; }
     public string PasswordHash { get; private set; }
 

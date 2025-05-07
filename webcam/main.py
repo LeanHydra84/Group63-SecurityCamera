@@ -189,7 +189,8 @@ async def send_loop():
         latest_frame = frame.copy()
         detection_status["human_detected"] = (current_time - last_detected_time) < STATUS_HOLD_SECONDS
         
-        await asyncio.sleep(1 / FPS)
+        if STREAMING_MODE == StreamingMode.WebSocket:
+            await asyncio.sleep(1 / FPS)
 
 asyncio.run(send_loop())
 

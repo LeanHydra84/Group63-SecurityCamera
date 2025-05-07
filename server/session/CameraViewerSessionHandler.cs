@@ -14,7 +14,7 @@ public class CameraViewerSessionHandler
         activeSessions.Remove(id);
     }
     
-    public void RegisterSession(LoginSession session, CameraSession camera, WebSocket socket)
+    public void RegisterSession(LoginSession? session, CameraSession camera, WebSocket socket)
     {
         CameraViewerSession cvs = new CameraViewerSession(socket, session, camera);
         activeSessions[session.User.ID] = cvs;

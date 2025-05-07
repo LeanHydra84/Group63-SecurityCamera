@@ -2,7 +2,7 @@ import requests as rq
 import websockets
 import asyncio
 
-connect_endpoint = "connectcamera"
+connect_endpoint = "connect_camera"
 
 async def connect_camera_websocket(address, host_port, camera_guid):
     if host_port is not None:
@@ -10,12 +10,11 @@ async def connect_camera_websocket(address, host_port, camera_guid):
     else:
         url = f"{address}/{connect_endpoint}"
 
-    print("Attempting connection to WebSocket...")
-    # send extra_headers={ 'cameraGuid' : camera_guid }, cannot have extra headers though
-    # come up with solution...
+    print("Connecting to websocket...")
 
     websocket = await websockets.connect(url)
-    await asyncio.sleep(5)
     await websocket.send(camera_guid)
+
+    print("Websocket connected")
 
     return websocket

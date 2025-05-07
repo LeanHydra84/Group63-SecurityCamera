@@ -51,9 +51,9 @@ namespace SecurityCameraServer
             }
         }
 
-        public bool ValidateAuthentication(string email, string authentication)
+        public bool ValidateAuthentication(string username, string authentication)
         {
-            User? user = Application.Database.GetLightUserFromEmail(email);
+            User? user = Application.Database.GetLightUserFromUsername(username);
             if (user == null) return false;
             return ValidateAuthentication(user, authentication);
         }
@@ -92,9 +92,9 @@ namespace SecurityCameraServer
             return authToken;
         }
 
-        public string? Login(string email, string password)
+        public string? Login(string username, string password)
         {
-            User? user = Application.Database.GetLightUserFromEmail(email);
+            User? user = Application.Database.GetLightUserFromUsername(username);
             if (user == null) return null;
 
             var suppliedHash = new SecureHash<SHA256>(password);
@@ -124,9 +124,9 @@ namespace SecurityCameraServer
 
         }
 
-        public bool Logout(string email)
+        public bool Logout(string username)
         {
-            User? user = Application.Database.GetLightUserFromEmail(email);
+            User? user = Application.Database.GetLightUserFromUsername(username);
             if (user == null) return false;
             if(activeSessions.ContainsKey(user.ID))
             {

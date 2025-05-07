@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace SecurityCameraServer;
 
 [Serializable]
-public class ConnectCameraData
+public class ConnectCameraRequest
 {
 	[JsonProperty("cameraGuid")]
 	public string? CameraGuid { get; set; }

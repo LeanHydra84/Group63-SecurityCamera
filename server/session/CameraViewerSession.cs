@@ -2,15 +2,13 @@ using System.Net.WebSockets;
 
 namespace SecurityCameraServer;
 
-public class CameraViewerSession
+public class CameraViewerSession : SocketHandlerBase
 {
-    public WebSocket Socket { get; }
-    public LoginSession Session { get; }
+    public LoginSession? Session { get; }
     public CameraSession Camera { get; }
 
-    public CameraViewerSession(WebSocket socket, LoginSession session, CameraSession camera)
+    public CameraViewerSession(WebSocket socket, LoginSession? session, CameraSession camera) : base(socket)
     {
-        Socket = socket;
         Session = session;
         Camera = camera;
     }

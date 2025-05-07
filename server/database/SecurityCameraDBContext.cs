@@ -15,7 +15,9 @@ namespace SecurityCameraServer
 
         public SecurityCameraDBContext()
         {
-            
+            // insane hack
+            // SecurityCameraDBContext must be parameterless so that Entity Framework migrations can work
+            // the connection string must be present at initialization
             ConnectionString = WebApplication.CreateBuilder().Configuration.GetConnectionString("SecurityCameraDBContext");
             Console.WriteLine($"Connection String: '{ConnectionString}'");
         }
