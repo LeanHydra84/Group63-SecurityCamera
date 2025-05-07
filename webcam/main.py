@@ -54,10 +54,10 @@ STREAMING_MODE = StreamingMode.WebSocket
 # configs
 HOST_IP = "ws://localhost"       # placeholder
 HOST_PORT = 5251            # placeholder
-CAMERA_GUID = 'a2ce1cbc-36be-4cf3-8442-e585cad6dd04'            # placeholder
+CAMERA_GUID = '0557697d-6523-4792-8d69-3a7f65109624'            # placeholder
 USE_LOCAL_PREVIEW = True    # false if headless (no local display)
 FRAME_SIZE = (640, 480)
-FPS = 25
+FPS = 10
 COOLDOWN_SECONDS = 5
 BOX_DISPLAY_SECONDS = 2
 
@@ -189,7 +189,7 @@ async def send_loop():
         latest_frame = frame.copy()
         detection_status["human_detected"] = (current_time - last_detected_time) < STATUS_HOLD_SECONDS
         
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(1 / FPS)
 
 asyncio.run(send_loop())
 

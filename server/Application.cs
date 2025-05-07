@@ -99,28 +99,13 @@ public static class Application
         {
             if (context.WebSockets.IsWebSocketRequest)
             {
-                var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-
-                string cameraGuid = string.Empty;
-                try
-                {
-                    CancellationToken token = new CancellationTokenSource().Token;
-                    ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[256]);
-                    var response = await webSocket.ReceiveAsync(buffer, token);
+                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                string? cameraGuid = await CameraSession.ReceiveCameraGuidFromServer(webSocket);
                 
-                    cameraGuid = System.Text.Encoding.Default.GetString(buffer.Slice(0, response.Count));
-                    Console.WriteLine($"Received camera GUID: {cameraGuid}");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                    return;
-                }
+                CameraSession? session = InitCameraConnection(webSocket, cameraGuid);
+                if (session == null) return;
 
-                Console.WriteLine(context.RequestAborted);
-
-                InitCameraConnection(webSocket, cameraGuid);
-                Console.WriteLine("WebSocket opened");
+                await session.HandleAsync(session.CancellationTokenSource.Token);
             }
             else
             {
@@ -131,23 +116,31 @@ public static class Application
         app.Run();
     }
 
+    private static void SaveImageToFile(CameraSession session)
+    {
+        if (session.CurrentSnapshot == null) return;
+
+        string fileName = Random.Shared.Next().ToString() + "_" + DateTime.Now.ToFileTimeUtc();
+        var file = File.Open($"C:\\Databases\\SCC\\{fileName}.jpg", FileMode.Create);
+        file.Write(session.CurrentSnapshot);
+        file.Close();
+    }
+
     private static IResult DefaultResponse()
     {
         return TypedResults.Ok("Default Response");
     }
 
-    private static int InitCameraConnection(WebSocket webSocket, string? cameraGuid)
+    private static CameraSession? InitCameraConnection(WebSocket webSocket, string? cameraGuid)
     {
-        if (cameraGuid == null) return StatusCodes.Status400BadRequest;
+        if (cameraGuid == null) return null;
         
         Camera? camera = Database.GetCamera(cameraGuid);
-        if (camera == null) return StatusCodes.Status400BadRequest;
+        if (camera == null) return null;
         
         Console.WriteLine("Camera connection initiated... websocket connected");
 
-        ActiveCameras.RegisterSession(camera, webSocket);
-        
-        return StatusCodes.Status201Created;
+        return ActiveCameras.RegisterSession(camera, webSocket);
     }
     
     // Account
@@ -305,7 +298,6 @@ public static class Application
         }
         
         // begin stream
-        
         return TypedResults.NotFound();
     }
 
