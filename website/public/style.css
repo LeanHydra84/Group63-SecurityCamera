@@ -22,7 +22,7 @@ h1 {
 
 img#cameraFeed {
   width: 100%;
-  max-height: 400px;
+  max-height: 1000px;
   object-fit: contain;
   border: 2px solid #555;
   background-color: #000;
@@ -48,4 +48,8 @@ img#cameraFeed {
 .settings label {
   display: block;
   margin: 0.5rem 0;
+}
+
+.passwordholder {
+  margin-top: 25pt;
 }

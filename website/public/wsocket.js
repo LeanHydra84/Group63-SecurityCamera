@@ -2,9 +2,43 @@
 const socket = new WebSocket('ws://localhost:5251/connect')
 const feed = document.getElementById('cameraFeed');
 
+const urlParams = new URLSearchParams(window.location.search);
+const guid = urlParams.get('cam')
+
+console.log(guid)
+
+function parseCookie(cname)
+{
+    let name = cname + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+    let ca = decodedCookie.split(';');
+    for(let i = 0; i <ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) == ' ') {
+        c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+        return c.substring(name.length, c.length);
+      }
+    }
+    return "";
+}
+
+function createAuthHeaders()
+{
+    let username = parseCookie("username")
+    let auth = parseCookie("authentication")
+
+    return {
+        "username" : username,
+        "authentication" : auth,
+        "Content-type": "application/json; charset=UTF-8"
+    }
+}
 
 socket.onopen = event => {
-    message = JSON.stringify({  authentication: "", cameraGuid: "0557697d-6523-4792-8d69-3a7f65109624", fps: 10 })
+    let auth = createAuthHeaders().authentication
+    message = JSON.stringify({ authentication: auth, cameraGuid: guid, fps: 10 })
     socket.send(message)
 }
 

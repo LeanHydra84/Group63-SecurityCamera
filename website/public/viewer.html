@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Group 63 Security Camera</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Group 63 Security Camera</h1>
+    <p>Live camera feed and alert system</p>
+  </header>
+
+  <main>
+    <section class="stream">
+      <h2>Live Camera Feed</h2>
+      <img id="cameraFeed" src="offline.jpg" alt="Live camera"/>
+    </section>
+
+    <section class="alerts">
+      <h2>AI Alerts (Live from Camera)</h2>
+      <div id="alertList"></div>
+    </section>
+  </main>
+
+  <script src="wsocket.js"></script>
+
+</body>
+</html>

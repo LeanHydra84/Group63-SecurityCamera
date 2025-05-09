@@ -67,7 +67,8 @@ public static class Application
         app.MapPost("/newuser", CreateUser).WithName("New User").WithOpenApi();
         app.MapPost("/resetpassword", ChangePassword).WithName("Reset Password").WithOpenApi();
         app.MapGet("/validate", CheckAuthenticationValidity).WithName("Validate Authentication").WithOpenApi();
-
+        app.MapGet("/getcams", GetAllCameras).WithName("Get Cameras").WithOpenApi();
+        
         // Camera
         app.MapPost("/registercamera", RegisterCamera).WithName("Register Camera").WithOpenApi();
 
@@ -81,9 +82,9 @@ public static class Application
                 string? jsonRequest = await webSocket.ReceiveFixedStringFromWebSocket(128);
                 if (jsonRequest == null) return;
                 
-                Console.WriteLine(jsonRequest);
-                await webSocket.SendAsync(new ArraySegment<byte>("Here are bytes"u8.ToArray()), WebSocketMessageType.Text, true, CancellationToken.None);
-                
+                // Console.WriteLine(jsonRequest);
+                // await webSocket.SendAsync(new ArraySegment<byte>("Here are bytes"u8.ToArray()), WebSocketMessageType.Text, true, CancellationToken.None);
+                //
                 var request = JsonConvert.DeserializeObject<ViewStreamRequest>(jsonRequest);
                 if (request == null) return;
                 if (request.CameraGuid == null) return;
@@ -172,7 +173,7 @@ public static class Application
     // Account
     private static IResult Login(
         [FromHeader(Name = "username")] string? username,
-        [FromHeader(Name = "username")] string? password)
+        [FromHeader(Name = "password")] string? password)
     {
         if (username == null || password == null)
             return TypedResults.BadRequest("Missing 'username' and/or 'password' headers");

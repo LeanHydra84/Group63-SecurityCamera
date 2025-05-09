@@ -16,3 +16,12 @@ app.use('/session', createProxyMiddleware({ target: 'http://localhost:5000', cha
 app.listen(port, () => {
   console.log(`Frontend running at http://localhost:${port}`);
 });
+
+app.get('/list', (req, res) => {
+  res.redirect('/list_page.html')
+})
+
+app.get('/view/:someString', (req, res) => {
+  const someString = req.params.someString
+  res.redirect(`/viewer.html?cam=${encodeURIComponent(someString)}`)
+})

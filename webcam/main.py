@@ -52,9 +52,9 @@ STREAMING_MODE = StreamingMode.WebSocket
 # ---------------------------------------
 
 # configs
-HOST_IP = "ws://localhost"          # placeholder
-HOST_PORT = 5251                    # placeholder
-CAMERA_GUID = '0557697d-6523-4792-8d69-3a7f65109624'            # placeholder
+HOST_IP = "ws://localhost"                                      # placeholder
+HOST_PORT = 5251                                                # placeholder
+CAMERA_GUID = 'd390f836-1406-4078-9944-66ad6c1fe537'            # placeholder
 USE_LOCAL_PREVIEW = True    # false if headless (no local display)
 FRAME_SIZE = (640, 480)
 FPS = 10

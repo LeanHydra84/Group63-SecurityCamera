@@ -1,20 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Group 63 Security Camera</title>
-	<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-	<header>
-		<h1>Group 63 Security Camera</h1>
-		<p>Live camera feed and alert system</p>
-	</header>
+  <header>
+    <h1>Group 63 Security Camera</h1>
+    <p>Live camera feed and alert system</p>
+  </header>
 
-	<p>Here we go</p>
-	<img id="cameraFeed" alt="Live camera"/>
+  <div class="passwordholder">
+    <input type="text" id="username" placeholder="Username"></input>
+    <input type="text" id="password" placeholder="Password"></input>
+    <button onclick="onloginclick()">Login</button>
+    <button onclick="oncreateclick()">Create Account</button>
+  </div>
 
-	<script src="wsocket.js"></script>
+  <script src="login.js"></script>
+
 </body>
 </html>

@@ -1,0 +1,12 @@
+version: 3
+
+agent:
+  authtoken: 
+
+tunnels:
+  api:
+    proto: http
+    addr: 5251
+  webapp:
+    proto: http
+    addr: 3000
