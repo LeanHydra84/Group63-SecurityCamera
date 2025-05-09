@@ -1,70 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Group 63 Security Camera</title>
-  <link rel="stylesheet" href="style.css" />
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Group 63 Security Camera</title>
+	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>Group 63 Security Camera</h1>
-    <p>Live camera feed and alert system</p>
-  </header>
+	<header>
+		<h1>Group 63 Security Camera</h1>
+		<p>Live camera feed and alert system</p>
+	</header>
 
-  <main>
-    <section class="stream">
-      <h2>Live Camera Feed</h2>
-      <p>Refreshing image feed from /snapshot endpoint.</p>
-      <img id="cameraFeed" src="/snapshot" alt="Live camera" />
-    </section>
+	<p>Here we go</p>
+	<img id="cameraFeed" alt="Live camera"/>
 
-    <section class="alerts">
-      <h2>AI Alerts (Live from Camera)</h2>
-      <div id="alertList"></div>
-    </section>
-
-    <section class="status">
-      <h2>System Status</h2>
-      <p><strong>Camera:</strong> <span id="cameraStatus">Loading...</span></p>
-      <p><strong>Network:</strong> <span id="networkStatus">Loading...</span></p>
-    </section>
-  </main>
-
-  <script>
-    const feed = document.getElementById('cameraFeed');
-    const cameraStatus = document.getElementById('cameraStatus');
-    const networkStatus = document.getElementById('networkStatus');
-    const alertList = document.getElementById('alertList');
-
-    // Refresh snapshot every 1 second
-    setInterval(() => {
-      const ts = new Date().getTime();
-      feed.src = `/snapshot?ts=${ts}`;
-    }, 1000);
-
-    // Poll /status for alerts
-    setInterval(() => {
-      fetch('/status')
-        .then(res => res.json())
-        .then(data => {
-          const detected = data.human_detected;
-          cameraStatus.textContent = "Connected";
-          networkStatus.textContent = "Connected";
-
-          if (detected) {
-            const time = new Date().toLocaleTimeString();
-            const alert = document.createElement('div');
-            alert.className = 'alert';
-            alert.innerHTML = `<strong>[${time}]</strong> Human detected (High)`;
-            alertList.prepend(alert);
-          }
-        })
-        .catch(() => {
-          cameraStatus.textContent = "Disconnected";
-          networkStatus.textContent = "Disconnected";
-        });
-    }, 3000);
-  </script>
+	<script src="wsocket.js"></script>
 </body>
 </html>
