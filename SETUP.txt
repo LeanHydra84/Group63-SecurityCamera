@@ -1,0 +1,11 @@
+Things to change URLs:
+
+Webpage:
+list_page.js 	- base_url
+login.js 	- base_url
+wsocket.js	- websocket url (change to wss:// if ngrok or ws:// if localhost)
+
+Webcam:
+HOST_IP= (wss:// if ngrok, ws:// if localhost)
+HOST_PORT= (set to None if ngrok)
+CAMERA_GUID= set to the camera GUID you are streaming to
